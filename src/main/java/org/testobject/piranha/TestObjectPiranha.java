@@ -11,6 +11,9 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
+
+import org.glassfish.jersey.client.ClientProperties;
+
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.ServerSocket;
@@ -41,6 +44,7 @@ public class TestObjectPiranha {
 	private String sessionInitResponse;
 	private String liveViewURL;
 	private String testReportURL;
+    private DesiredCapabilities desiredCapabilities;
 
 	public TestObjectPiranha(DesiredCapabilities desiredCapabilities) {
 		this(TESTOBJECT_APP_BASE_URL, desiredCapabilities);
@@ -50,8 +54,16 @@ public class TestObjectPiranha {
 
 		this.baseUrl = baseUrl;
 		this.webTarget = client.target(baseUrl + "piranha");
+		this.desiredCapabilities = desiredCapabilities;
+	    client.property(ClientProperties.CONNECT_TIMEOUT, 10*60*1000); // 10 minute
+	    client.property(ClientProperties.READ_TIMEOUT,  10*60*1000); // 10 minutes
+	}
 
-		Map<String, Map<String, Object>> fullCapabilities = new HashMap<String, Map<String, Object>>();
+    /**
+     * @param desiredCapabilities
+     */
+    public void open() {
+        Map<String, Map<String, Object>> fullCapabilities = new HashMap<String, Map<String, Object>>();
 		fullCapabilities.put("desiredCapabilities", desiredCapabilities.getCapabilities());
 
 		String capsAsJson = new GsonBuilder().create().toJson(fullCapabilities);
@@ -72,7 +84,7 @@ public class TestObjectPiranha {
 
 		startProxyServer(sessionId);
 		startKeepAlive(sessionId);
-	}
+    }
 
 	private void startKeepAlive(final String sessionId) {
 		scheduler.scheduleAtFixedRate(new Runnable() {
@@ -142,7 +154,9 @@ public class TestObjectPiranha {
 	}
 
 	public void close() {
-		scheduler.shutdown();
+	    if(scheduler != null){
+	        scheduler.shutdown();	        
+	    }
 		deleteSession();
 
 		try {
@@ -153,6 +167,30 @@ public class TestObjectPiranha {
 
 	}
 
+	   public void closeSilently() {
+	        if(scheduler != null){
+	            try {
+                    scheduler.shutdown();
+                } catch (Throwable e) {
+                    // ignored
+                }
+	        }
+
+	        try {
+	            deleteSession();
+	        } catch (Throwable e) {
+	            // ignored
+	        }
+	        
+           try {
+               proxy.stop();
+            } catch (Throwable e) {
+                // ignored
+            }
+
+
+	    }
+	
 	private void deleteSession() {
 		try {
 			System.out.println("[" + Thread.currentThread().getName() + "] deleting session '" + sessionId + "'");

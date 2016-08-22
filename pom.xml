@@ -4,8 +4,8 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.testobject.piranha</groupId>
-	<artifactId>api</artifactId>
-	<version>0.0.13</version>
+	<artifactId>api2</artifactId>
+	<version>0.0.1</version>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
