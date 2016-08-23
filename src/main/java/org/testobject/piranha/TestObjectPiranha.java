@@ -91,12 +91,20 @@ public class TestObjectPiranha {
 		scheduler.scheduleAtFixedRate(new Runnable() {
 			@Override
 			public void run() {
-				try {
+                int c = 0;
+			    try {
 					webTarget.path("session").path(sessionId).path("keepalive")
 							.request(MediaType.APPLICATION_JSON)
 							.post(Entity.entity("", MediaType.APPLICATION_JSON), String.class);
+				c = 0;
 				} catch (Exception e) {
-					System.out.println("KeepAlive exception " + e);
+					System.out.println("KeepAlive exception Occurred : " + e);
+					c = c++;
+					if(c > 50){
+		                System.out.println("Closing the testObjectSession : " + sessionId);
+					    closeSilently();
+					    throw e;
+					}
 				}
 			}
 		}, 10, 10, TimeUnit.SECONDS);
