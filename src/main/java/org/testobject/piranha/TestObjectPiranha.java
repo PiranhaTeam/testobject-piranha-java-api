@@ -12,6 +12,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.commons.codec.binary.StringUtils;
 import org.glassfish.jersey.client.ClientProperties;
 
 import java.io.IOException;
@@ -192,6 +193,9 @@ public class TestObjectPiranha {
 	    }
 	
 	private void deleteSession() {
+	    if(sessionId == null || sessionId.trim().length() == 0){
+	        return;
+	    }
 		try {
 			System.out.println("[" + Thread.currentThread().getName() + "] deleting session '" + sessionId + "'");
 			webTarget.path("session/" + sessionId).request(MediaType.APPLICATION_JSON).delete();
