@@ -5,14 +5,14 @@ import java.util.Map;
 
 public class DesiredCapabilities {
 
-	private Map<String, Object> capabilities = new HashMap<String, Object>();
-	
-	public void setCapability(String key, Object value) {
-		capabilities.put(key, value);
-	}
-	
-	Map<String, Object> getCapabilities() {
-		return capabilities;
-	}
-	
+    private final Map<String, Object> capabilities = new HashMap<String, Object>();
+
+    public void setCapability(final String key, final Object value) {
+        capabilities.put(key, value);
+    }
+
+    Map<String, Object> getCapabilities() {
+        return capabilities;
+    }
+
 }
