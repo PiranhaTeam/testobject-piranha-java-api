@@ -88,26 +88,28 @@ public class TestObjectPiranha {
     }
 
 	private void startKeepAlive(final String sessionId) {
-		scheduler.scheduleAtFixedRate(new Runnable() {
-			@Override
-			public void run() {
-                int c = 0;
-			    try {
-					webTarget.path("session").path(sessionId).path("keepalive")
-							.request(MediaType.APPLICATION_JSON)
-							.post(Entity.entity("", MediaType.APPLICATION_JSON), String.class);
-				c = 0;
-				} catch (Exception e) {
-					System.out.println("KeepAlive exception Occurred : " + e);
-					c = c++;
-					if(c > 50){
-		                System.out.println("Closing the testObjectSession : " + sessionId);
-					    closeSilently();
-					    throw e;
-					}
-				}
-			}
-		}, 10, 10, TimeUnit.SECONDS);
+	    Runnable runnable = new Runnable() {
+            int c = 0;
+            @Override
+            public void run() {
+                try {
+                    webTarget.path("session").path(sessionId).path("keepalive")
+                            .request(MediaType.APPLICATION_JSON)
+                            .post(Entity.entity("", MediaType.APPLICATION_JSON), String.class);
+                    c = 0;
+                } catch (Exception e) {
+                    System.out.println(String.format("KeepAlive exception Occurred (%d) : %s",
+                            c , e));
+                    c = c++;
+                    if(c > 6){
+                        System.out.println("Closing the testObjectSession : " + sessionId);
+                        closeSilently();
+                        throw e;
+                    }
+                }
+            }
+	    };    
+		scheduler.scheduleAtFixedRate(runnable, 10, 10, TimeUnit.SECONDS);
 	}
 
 	private void startProxyServer(String sessionId) {
