@@ -100,7 +100,7 @@ public class TestObjectPiranha {
                 } catch (Exception e) {
                     System.out.println(String.format("KeepAlive exception Occurred (%d) : %s",
                             c , e));
-                    c = c++;
+                    c = c + 1;
                     if(c > 6){
                         System.out.println("Closing the testObjectSession : " + sessionId);
                         closeSilently();
