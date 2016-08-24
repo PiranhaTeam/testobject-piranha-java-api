@@ -13,6 +13,7 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.commons.codec.binary.StringUtils;
+import org.apache.log4j.Logger;
 import org.glassfish.jersey.client.ClientProperties;
 
 import java.io.IOException;
@@ -27,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class TestObjectPiranha {
 
 	//	public static String TESTOBJECT_BASE_URL = "http://localhost:7070/";
-
+    Logger logger = Logger.getLogger(TestObjectPiranha.class);
 	public static String TESTOBJECT_APP_BASE_URL = "https://app.testobject.com:443/api/";
 	public static String TESTOBJECT_CITRIX_BASE_URL = "https://citrix.testobject.com:443/api/";
 	//	public static String TESTOBJECT_BASE_URL = "http://branches.testobject.org/api/";
@@ -98,11 +99,11 @@ public class TestObjectPiranha {
                             .post(Entity.entity("", MediaType.APPLICATION_JSON), String.class);
                     c = 0;
                 } catch (Exception e) {
-                    System.out.println(String.format("KeepAlive exception Occurred (%d) : %s",
+                    logger.error(String.format("KeepAlive exception Occurred (%d) : %s",
                             c , e));
                     c = c + 1;
                     if(c > 6){
-                        System.out.println("Closing the testObjectSession : " + sessionId);
+                        logger.error("Closing the testObjectSession : " + sessionId);
                         closeSilently();
                         throw e;
                     }
@@ -207,7 +208,7 @@ public class TestObjectPiranha {
 	        return;
 	    }
 		try {
-			System.out.println("[" + Thread.currentThread().getName() + "] deleting session '" + sessionId + "'");
+			logger.info("[" + Thread.currentThread().getName() + "] deleting session '" + sessionId + "'");
 			webTarget.path("session/" + sessionId).request(MediaType.APPLICATION_JSON).delete();
 		} catch (InternalServerErrorException e) {
 			rethrow(e);
