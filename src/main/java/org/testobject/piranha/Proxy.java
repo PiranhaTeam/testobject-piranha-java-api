@@ -14,12 +14,14 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.apache.log4j.Logger;
 
 public class Proxy extends NanoHTTPD {
 
 	private final String url;
 	private final CloseableHttpClient httpClient;
-
+	Logger logger = Logger.getLogger(TestObjectPiranha.class);
+	
 	public Proxy(int port, String baseUrl, String sessionId) {
 		super(port);
 
@@ -37,7 +39,7 @@ public class Proxy extends NanoHTTPD {
 
 		p.setHeader(HttpHeaders.ACCEPT_ENCODING, "application/json-rpc");
 		
-		System.out.println("[" + Thread.currentThread().getName() + "] sending request " + url + " " + command);
+	    logger.debug("[" + Thread.currentThread().getName() + "] sending request " + url + " " + command);
 		
 		try {
 			CloseableHttpResponse response = httpClient.execute(p);
