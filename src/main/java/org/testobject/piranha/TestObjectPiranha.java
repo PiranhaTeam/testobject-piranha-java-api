@@ -62,7 +62,6 @@ public class TestObjectPiranha {
      * @param desiredCapabilities
      */
     public TestObjectPiranha(String baseUrl, DesiredCapabilities desiredCapabilities) {
-
         this.baseUrl = baseUrl;
         this.webTarget = client.target(baseUrl + "piranha");
         this.desiredCapabilities = desiredCapabilities;
@@ -176,69 +175,101 @@ public class TestObjectPiranha {
 	public String getLiveViewURL() {
 		return liveViewURL;
 	}
+	
+	
+	/**
+	 * Boolean flag to 
+	 */
+	private boolean isCloseCalled = false;
 
-	public void close() {
-	    if(scheduler != null){
-	        scheduler.shutdown();	        
-	    }
-		deleteSession();
+    /**
+     * Close the connection.
+     */
+    public void close() {
+        if (isCloseCalled) {
+            return;
+        }
 
-		try {
-			proxy.stop();
-		} catch (Exception e) {
-			// ignored
-		}
+        if (scheduler != null) {
+            try {
+                scheduler.shutdown();
+            } catch (Throwable e) {
+                logger.warn(String.format(
+                        "Failed to shut down scheduler for session: %s. Error: %s", sessionId, e
+                                .getMessage()));
+            }
+        }
+        try {
+            logger.info(String.format("Deleting session: %s", sessionId));
+            deleteSession();
+        } catch (Throwable e) {
+            logger.warn(String.format("Failed to delete session: %s. Error: %s", sessionId, e
+                    .getMessage()));
+        }
 
-	}
+        try {
+            proxy.stop();
+        } catch (Throwable e) {
+            logger.warn(String.format("Failed to stop proxy for session: %s. Error: %s", sessionId,
+                    e.getMessage()));
+        }
+
+        try {
+            client.close();
+        } catch (Throwable e) {
+            logger.error(String.format("Failed to close the TestObject conection for session: %s",
+                    sessionId));
+        }
+        isCloseCalled = true;
+    }
 
     /**
      * Close the test object connection
      */
     public void closeSilently() {
-        try {
-            if (scheduler != null) {
-                try {
-                    scheduler.shutdown();
-                } catch (Throwable e) {
-                    logger.warn(String.format(
-                            "Failed to shut down scheduler for session: %s. Error: %s", sessionId, e
-                                    .getMessage()));
-                }
-            }
-            try {
-                deleteSession();
-            } catch (Throwable e) {
-                logger.warn(String.format("Failed to delete session: %s. Error: %s", sessionId, e
-                        .getMessage()));
-            }
+        if (isCloseCalled) {
+            return;
+        }
 
+        if (scheduler != null) {
             try {
-                proxy.stop();
+                scheduler.shutdown();
             } catch (Throwable e) {
-                logger.warn(String.format("Failed to stop proxy for session: %s. Error: %s",
-                        sessionId, e.getMessage()));
-            }
-        } finally {
-            try {
-                client.close();
-            } catch (Throwable e) {
-                logger.error(String.format(
-                        "Failed to close the TestObject conection for session: %s", sessionId));
+                // do nothing.
             }
         }
+        try {
+            deleteSession();
+        } catch (Throwable e) {
+            // do nothing.
+        }
+
+        try {
+            proxy.stop();
+        } catch (Throwable e) {
+            // do nothing
+        }
+        try {
+            client.close();
+        } catch (Throwable e) {
+            // do nothing.
+        }
+        isCloseCalled = true;
     }
-	
-	private void deleteSession() {
-	    if(sessionId == null || sessionId.trim().length() == 0){
-	        return;
-	    }
-		try {
-			logger.info("[" + Thread.currentThread().getName() + "] deleting session '" + sessionId + "'");
-			webTarget.path("session/" + sessionId).request(MediaType.APPLICATION_JSON).delete();
-		} catch (InternalServerErrorException e) {
-			rethrow(e);
-		}
-	}
+
+    /**
+     * Delete the session.
+     */
+    private void deleteSession() {
+        if (sessionId == null || sessionId.trim().length() == 0) {
+            return;
+        }
+        try {
+            webTarget.path("session/" + sessionId).request(MediaType.APPLICATION_JSON).delete();
+        } catch (InternalServerErrorException e) {
+            rethrow(e);
+        }
+    }
 
 	public String getSessionInitResponse() {
 		return this.sessionInitResponse;
