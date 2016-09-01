@@ -12,7 +12,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 
-import org.apache.commons.codec.binary.StringUtils;
+
 import org.apache.log4j.Logger;
 import org.glassfish.jersey.client.ClientProperties;
 
@@ -48,23 +48,33 @@ public class TestObjectPiranha {
 	private String testReportURL;
     private DesiredCapabilities desiredCapabilities;
 
-	public TestObjectPiranha(DesiredCapabilities desiredCapabilities) {
-		this(TESTOBJECT_APP_BASE_URL, desiredCapabilities);
-	}
-
-	public TestObjectPiranha(String baseUrl, DesiredCapabilities desiredCapabilities) {
-
-		this.baseUrl = baseUrl;
-		this.webTarget = client.target(baseUrl + "piranha");
-		this.desiredCapabilities = desiredCapabilities;
-	    client.property(ClientProperties.CONNECT_TIMEOUT, 10*60*1000); // 10 minute
-	    client.property(ClientProperties.READ_TIMEOUT,  10*60*1000); // 10 minutes
-	}
-
     /**
+     * Constructor.
      * @param desiredCapabilities
      */
+    public TestObjectPiranha(DesiredCapabilities desiredCapabilities) {
+        this(TESTOBJECT_APP_BASE_URL, desiredCapabilities);
+    }
+
+    /**
+     * Constructor.
+     * @param baseUrl
+     * @param desiredCapabilities
+     */
+    public TestObjectPiranha(String baseUrl, DesiredCapabilities desiredCapabilities) {
+
+        this.baseUrl = baseUrl;
+        this.webTarget = client.target(baseUrl + "piranha");
+        this.desiredCapabilities = desiredCapabilities;
+        client.property(ClientProperties.CONNECT_TIMEOUT, 10 * 60 * 1000); // 10 minute
+        client.property(ClientProperties.READ_TIMEOUT, 10 * 60 * 1000); // 10 minutes
+    }
+
+    /**
+     * Open connection.
+     */
     public void open() {
+        logger.info(String.format("[%s] Opening TestObject Connection", Thread.currentThread().getName()));
         Map<String, Map<String, Object>> fullCapabilities = new HashMap<String, Map<String, Object>>();
 		fullCapabilities.put("desiredCapabilities", desiredCapabilities.getCapabilities());
 
@@ -89,6 +99,7 @@ public class TestObjectPiranha {
     }
 
 	private void startKeepAlive(final String sessionId) {
+	    logger.info(String.format("Starting Keep Alive for session: %s", sessionId));
 	    Runnable runnable = new Runnable() {
             int c = 0;
             @Override
@@ -114,6 +125,7 @@ public class TestObjectPiranha {
 	}
 
 	private void startProxyServer(String sessionId) {
+	    logger.info(String.format("Starting Proxy Server for session: %s", sessionId));
 		port = findFreePort();
 
 		proxy = new Proxy(port, baseUrl + "piranha", sessionId);
@@ -179,29 +191,42 @@ public class TestObjectPiranha {
 
 	}
 
-	   public void closeSilently() {
-	        if(scheduler != null){
-	            try {
+    /**
+     * Close the test object connection
+     */
+    public void closeSilently() {
+        try {
+            if (scheduler != null) {
+                try {
                     scheduler.shutdown();
                 } catch (Throwable e) {
-                    // ignored
+                    logger.warn(String.format(
+                            "Failed to shut down scheduler for session: %s. Error: %s", sessionId, e
+                                    .getMessage()));
                 }
-	        }
-
-	        try {
-	            deleteSession();
-	        } catch (Throwable e) {
-	            // ignored
-	        }
-	        
-           try {
-               proxy.stop();
+            }
+            try {
+                deleteSession();
             } catch (Throwable e) {
-                // ignored
+                logger.warn(String.format("Failed to delete session: %s. Error: %s", sessionId, e
+                        .getMessage()));
             }
 
-
-	    }
+            try {
+                proxy.stop();
+            } catch (Throwable e) {
+                logger.warn(String.format("Failed to stop proxy for session: %s. Error: %s",
+                        sessionId, e.getMessage()));
+            }
+        } finally {
+            try {
+                client.close();
+            } catch (Throwable e) {
+                logger.error(String.format(
+                        "Failed to close the TestObject conection for session: %s", sessionId));
+            }
+        }
+    }
 	
 	private void deleteSession() {
 	    if(sessionId == null || sessionId.trim().length() == 0){
