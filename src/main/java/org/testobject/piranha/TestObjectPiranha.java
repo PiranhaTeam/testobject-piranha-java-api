@@ -31,11 +31,13 @@ public class TestObjectPiranha {
     Logger logger = Logger.getLogger(TestObjectPiranha.class);
 	public static String TESTOBJECT_APP_BASE_URL = "https://app.testobject.com:443/api/";
 	public static String TESTOBJECT_CITRIX_BASE_URL = "https://citrix.testobject.com:443/api/";
+	public static String TESTOBJECT_STAGE_APP_BASE_URL = "https://staging.testobject.org:443/api/";
 	//	public static String TESTOBJECT_BASE_URL = "http://branches.testobject.org/api/";
 
 	private final String baseUrl;
 	private final Client client = ClientBuilder.newClient();
 	private final WebTarget webTarget;
+	private final WebTarget keepAliveWebTarget;
 
 	private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1,
 			new ThreadFactoryBuilder().setNameFormat("Piranha keep-alive").build());
@@ -48,13 +50,13 @@ public class TestObjectPiranha {
 	private String testReportURL;
     private DesiredCapabilities desiredCapabilities;
 
-    /**
-     * Constructor.
-     * @param desiredCapabilities
-     */
-    public TestObjectPiranha(DesiredCapabilities desiredCapabilities) {
-        this(TESTOBJECT_APP_BASE_URL, desiredCapabilities);
-    }
+//    /**
+//     * Constructor.
+//     * @param desiredCapabilities
+//     */
+//    public TestObjectPiranha(DesiredCapabilities desiredCapabilities) {
+//        this(TESTOBJECT_APP_BASE_URL, desiredCapabilities);
+//    }
 
     /**
      * Constructor.
@@ -63,17 +65,35 @@ public class TestObjectPiranha {
      */
     public TestObjectPiranha(String baseUrl, DesiredCapabilities desiredCapabilities) {
         this.baseUrl = baseUrl;
-        this.webTarget = client.target(baseUrl + "piranha");
+        this.webTarget = getWebTarget(baseUrl, desiredCapabilities);
+        this.keepAliveWebTarget = client.target(baseUrl + "piranha");
         this.desiredCapabilities = desiredCapabilities;
         client.property(ClientProperties.CONNECT_TIMEOUT, 10 * 60 * 1000); // 10 minute
         client.property(ClientProperties.READ_TIMEOUT, 10 * 60 * 1000); // 10 minutes
     }
 
     /**
+     * @param baseUrl
+     * @param desiredCapabilities
+     * @return 
+     */
+    private WebTarget getWebTarget(String baseUrl, DesiredCapabilities desiredCapabilities) {
+        String version = "";
+        //note: this capability should be passed only for iOS Driver version2 
+        if(desiredCapabilities.getCapabilities().containsKey("testobject_piranha_version")){
+            int v = (int)desiredCapabilities.getCapabilities().get("testobject_piranha_version");
+            if(v == 2){
+                version = "2";
+            }
+        } 
+        return client.target(baseUrl + "piranha" + version);
+    }
+
+    /**
      * Open connection.
      */
     public void open() {
-        logger.info(String.format("[%s] Opening TestObject Connection", Thread.currentThread().getName()));
+        logger.info(String.format("[%s] Opening TestObject Connection with webtarget : '%s'", Thread.currentThread().getName() , this.webTarget.getUri().toString()));
         Map<String, Map<String, Object>> fullCapabilities = new HashMap<String, Map<String, Object>>();
 		fullCapabilities.put("desiredCapabilities", desiredCapabilities.getCapabilities());
 
@@ -98,13 +118,13 @@ public class TestObjectPiranha {
     }
 
 	private void startKeepAlive(final String sessionId) {
-	    logger.info(String.format("Starting Keep Alive for session: %s", sessionId));
+	    logger.info(String.format("Starting Keep Alive for session: %s , with webTarget '%s'", sessionId , this.keepAliveWebTarget.getUri().toString()));
 	    Runnable runnable = new Runnable() {
             int c = 0;
             @Override
             public void run() {
                 try {
-                    webTarget.path("session").path(sessionId).path("keepalive")
+                    keepAliveWebTarget.path("session").path(sessionId).path("keepalive")
                             .request(MediaType.APPLICATION_JSON)
                             .post(Entity.entity("", MediaType.APPLICATION_JSON), String.class);
                     c = 0;
@@ -124,10 +144,15 @@ public class TestObjectPiranha {
 	}
 
 	private void startProxyServer(String sessionId) {
-	    logger.info(String.format("Starting Proxy Server for session: %s", sessionId));
-		port = findFreePort();
+        port = findFreePort();
 
-		proxy = new Proxy(port, baseUrl + "piranha", sessionId);
+	    logger.info(String.format("Starting Proxy Server {port:%d} for session: %s , "
+	            + "using uri : %s", 
+	            port,
+	            sessionId , 
+	            this.webTarget.getUri().toString()));
+
+		proxy = new Proxy(port, this.webTarget.getUri().toString(), sessionId);
 		try {
 			proxy.start();
 		} catch (IOException e) {
