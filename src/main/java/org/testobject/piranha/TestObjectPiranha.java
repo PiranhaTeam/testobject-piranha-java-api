@@ -12,7 +12,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 
-
+import org.apache.commons.codec.binary.StringUtils;
 import org.apache.log4j.Logger;
 import org.glassfish.jersey.client.ClientProperties;
 
@@ -37,7 +37,7 @@ public class TestObjectPiranha {
 	private final String baseUrl;
 	private final Client client = ClientBuilder.newClient();
 	private final WebTarget webTarget;
-	private final WebTarget keepAliveWebTarget;
+    private final boolean isVersion2;
 
 	private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1,
 			new ThreadFactoryBuilder().setNameFormat("Piranha keep-alive").build());
@@ -65,8 +65,8 @@ public class TestObjectPiranha {
      */
     public TestObjectPiranha(String baseUrl, DesiredCapabilities desiredCapabilities) {
         this.baseUrl = baseUrl;
-        this.webTarget = getWebTarget(baseUrl, desiredCapabilities);
-        this.keepAliveWebTarget = client.target(baseUrl + "piranha");
+        this.isVersion2 = isVersion2(desiredCapabilities); 
+        this.webTarget = getWebTarget(baseUrl , desiredCapabilities);
         this.desiredCapabilities = desiredCapabilities;
         client.property(ClientProperties.CONNECT_TIMEOUT, 10 * 60 * 1000); // 10 minute
         client.property(ClientProperties.READ_TIMEOUT, 10 * 60 * 1000); // 10 minutes
@@ -74,19 +74,28 @@ public class TestObjectPiranha {
 
     /**
      * @param baseUrl
-     * @param desiredCapabilities
-     * @return 
+     * @return
      */
-    private WebTarget getWebTarget(String baseUrl, DesiredCapabilities desiredCapabilities) {
-        String version = "";
+    private WebTarget getWebTarget(String baseUrl , DesiredCapabilities desiredCapabilities) {
+        if (isVersion2(desiredCapabilities)) {
+            return client.target(baseUrl + "piranha2");
+        }
+        return client.target(baseUrl + "piranha");
+    }
+
+    /**
+     * @param desiredCapabilities
+     * @return
+     */
+    private boolean isVersion2(DesiredCapabilities desiredCapabilities) {
         //note: this capability should be passed only for iOS Driver version2 
         if(desiredCapabilities.getCapabilities().containsKey("testobject_piranha_version")){
             int v = (int)desiredCapabilities.getCapabilities().get("testobject_piranha_version");
             if(v == 2){
-                version = "2";
+                return true;
             }
-        } 
-        return client.target(baseUrl + "piranha" + version);
+        }
+        return false;
     }
 
     /**
@@ -103,34 +112,49 @@ public class TestObjectPiranha {
 			String response = webTarget.path("session").request(MediaType.TEXT_PLAIN)
 					.post(Entity.entity(capsAsJson, MediaType.APPLICATION_JSON), String.class);
 
+			logger.info(String.format("response: %s" , response));
 			Map<String, Object> map = jsonToMap(response);
 			sessionId = (String) map.get("sessionId");
+			if(sessionId == null){
+			    sessionId = (String) map.get("sessionID");
+			}
 			liveViewURL = (String) map.get("testLiveViewUrl");
-			testReportURL = (String) map.get("testReportUrl");
-			setSessionInitResponse(response);
+	         if(liveViewURL == null){
+	             liveViewURL = (String) map.get("testobject_test_live_view_url");
+	         }
+            testReportURL = (String) map.get("testReportUrl");
+            if (testReportURL == null) {
+                testReportURL = (String) map.get("testobject_test_report_url");
+            }
+            setSessionInitResponse(response);
 
 		} catch (InternalServerErrorException e) {
 			rethrow(e);
 		}
-
-		startProxyServer(sessionId);
+		//for v2 proxy is not started
+		if(!isVersion2){
+	        startProxyServer(sessionId);		    
+		}
 		startKeepAlive(sessionId);
     }
 
 	private void startKeepAlive(final String sessionId) {
-	    logger.info(String.format("Starting Keep Alive for session: %s , with webTarget '%s'", sessionId , this.keepAliveWebTarget.getUri().toString()));
+	    
+	    logger.info(String.format("Starting Keep Alive for session: %s , with webTarget '%s'", 
+	            sessionId , this.webTarget.getUri().toString()));
+	    
 	    Runnable runnable = new Runnable() {
             int c = 0;
             @Override
             public void run() {
                 try {
-                    keepAliveWebTarget.path("session").path(sessionId).path("keepalive")
+                    webTarget.path("session").path(sessionId).path("keepalive")
                             .request(MediaType.APPLICATION_JSON)
                             .post(Entity.entity("", MediaType.APPLICATION_JSON), String.class);
                     c = 0;
                 } catch (Exception e) {
-                    logger.error(String.format("KeepAlive exception Occurred (%d) : %s",
-                            c , e));
+                    logger.error(String.format("KeepAlive exception Occurred (try #%d) using webtarget '%s' error details are : %s",
+                            c ,  webTarget.getUri().toString(),  e));
                     c = c + 1;
                     if(c > 6){
                         logger.error("Closing the testObjectSession : " + sessionId);
@@ -233,7 +257,9 @@ public class TestObjectPiranha {
         }
 
         try {
-            proxy.stop();
+            if(proxy != null){
+                proxy.stop();                
+            }
         } catch (Throwable e) {
             logger.warn(String.format("Failed to stop proxy for session: %s. Error: %s", sessionId,
                     e.getMessage()));
