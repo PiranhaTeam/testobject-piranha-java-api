@@ -30,7 +30,7 @@ public class TestObjectPiranha {
 	//	public static String TESTOBJECT_BASE_URL = "http://localhost:7070/";
     Logger logger = Logger.getLogger(TestObjectPiranha.class);
 	public static String TESTOBJECT_APP_BASE_URL = "https://app.testobject.com:443/api/";
-	public static String TESTOBJECT_CITRIX_BASE_URL = "https://citrix.testobject.com:443/api/";
+	public static String TESTOBJECT_LMI_BASE_URL = "https://lmi.testobject.com:443/api/";
 	public static String TESTOBJECT_STAGE_APP_BASE_URL = "https://staging.testobject.org:443/api/";
 	//	public static String TESTOBJECT_BASE_URL = "http://branches.testobject.org/api/";
 
@@ -331,7 +331,7 @@ public class TestObjectPiranha {
 	}
 
 	public static TestObjectApi api() {
-		return new TestObjectApi(TESTOBJECT_CITRIX_BASE_URL);
+		return new TestObjectApi(TESTOBJECT_LMI_BASE_URL);
 	}
 
 	public static TestObjectApi apiPublic() {
